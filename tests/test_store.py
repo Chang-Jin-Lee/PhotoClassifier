@@ -5,7 +5,7 @@ from time import sleep
 
 import pytest
 
-from photoclassifier.domain import JobPhase, JobRecord
+from photoclassifier.domain import JobPhase, JobRecord, MediaRecord
 from photoclassifier.store import JobStore
 
 
@@ -75,3 +75,13 @@ def test_replace_media_rejects_records_for_another_job(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="job-1"):
         store.replace_media("job-1", [record])
+
+
+def test_store_replaces_media_atomically(tmp_path: Path, scanned_media: list[MediaRecord]) -> None:
+    store = JobStore(tmp_path / "state.sqlite3")
+    store.create_job(JobRecord.new("job-1", tmp_path / "수집", tmp_path / "out"))
+
+    store.replace_media("job-1", scanned_media)
+    store.replace_media("job-1", scanned_media[:1])
+
+    assert store.list_media("job-1") == scanned_media[:1]
