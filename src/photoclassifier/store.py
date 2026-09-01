@@ -2,7 +2,7 @@ import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from .domain import (ClassificationDecision, ContributorMode, DecisionSource,
                      JobPhase, JobRecord, MediaKind, MediaRecord)
@@ -75,6 +75,13 @@ class JobStore:
     def save_alias(self, job_id: str, source_name: str, canonical_name: str) -> None:
         with self._lock, self._connection:
             self._connection.execute("INSERT OR REPLACE INTO category_aliases VALUES (?, ?, ?)", (job_id, source_name, canonical_name))
+
+    def save_aliases(self, job_id: str, aliases: Mapping[str, str]) -> None:
+        with self._lock, self._connection:
+            self._connection.executemany(
+                "INSERT OR REPLACE INTO category_aliases VALUES (?, ?, ?)",
+                [(job_id, source_name, canonical_name) for source_name, canonical_name in aliases.items()],
+            )
 
     def list_aliases(self, job_id: str) -> dict[str, str]:
         with self._lock:

@@ -85,3 +85,11 @@ def test_store_replaces_media_atomically(tmp_path: Path, scanned_media: list[Med
     store.replace_media("job-1", scanned_media[:1])
 
     assert store.list_media("job-1") == scanned_media[:1]
+
+
+def test_save_aliases_replaces_existing_sources_transactionally(tmp_path: Path) -> None:
+    store = JobStore(tmp_path / "state.sqlite3")
+    store.create_job(JobRecord.new("job-1", tmp_path / "in", tmp_path / "out"))
+    store.save_aliases("job-1", {"old": "canonical", "other": "name"})
+    store.save_aliases("job-1", {"old": "new-canonical"})
+    assert store.list_aliases("job-1") == {"old": "new-canonical", "other": "name"}
