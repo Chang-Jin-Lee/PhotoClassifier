@@ -37,6 +37,45 @@ def test_scan_ignores_unsupported_files(tmp_path: Path) -> None:
     assert result.ignored_files == (ignored.resolve(),)
 
 
+@pytest.mark.parametrize("suffix", [".PNG", ".WebP", ".heic", ".MOV", ".mkv"])
+def test_scan_preserves_non_v1_media_extensions_as_ignored(tmp_path: Path, suffix: str) -> None:
+    source = tmp_path / "수집"
+    unsupported = source / "서주영" / "사진" / f"image{suffix}"
+    unsupported.parent.mkdir(parents=True)
+    unsupported.write_bytes(b"unsupported")
+
+    result = scan_source(JobRecord.new("job-1", source, tmp_path / "out"), {})
+
+    assert result.media == []
+    assert result.ignored_files == (unsupported.resolve(),)
+
+
+def test_scan_ignores_supported_extension_file_at_source_root(tmp_path: Path) -> None:
+    source = tmp_path / "수집"
+    source.mkdir()
+    root_file = source / "20260826_084948.JPG"
+    root_file.write_bytes(b"not under a contributor")
+
+    result = scan_source(JobRecord.new("job-1", source, tmp_path / "out"), {})
+
+    assert result.media == []
+    assert result.contributors == []
+    assert result.ignored_files == (root_file.resolve(),)
+
+
+def test_scan_includes_contributor_with_only_unsupported_files(tmp_path: Path) -> None:
+    source = tmp_path / "수집"
+    unsupported = source / "서주영" / "사진" / "메모.txt"
+    unsupported.parent.mkdir(parents=True)
+    unsupported.write_text("x", encoding="utf-8")
+
+    result = scan_source(JobRecord.new("job-1", source, tmp_path / "out"), {})
+
+    assert [(item.name, item.mode, item.file_count) for item in result.contributors] == [
+        ("서주영", ContributorMode.UNCLASSIFIED, 0),
+    ]
+
+
 def test_scan_uses_override_and_stable_absolute_order(tmp_path: Path) -> None:
     source = tmp_path / "수집"
     write_jpeg(source / "B" / "사진" / "20260826_084948.jpg")

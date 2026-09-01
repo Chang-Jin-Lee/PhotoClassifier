@@ -8,8 +8,8 @@ from .domain import ContributorMode, JobRecord, MediaKind, MediaRecord
 from .hashing import sha256_file
 from .media.metadata import read_capture_time, run_ffprobe
 
-_PHOTO_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-_VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv"}
+_PHOTO_SUFFIXES = {".jpg", ".jpeg"}
+_VIDEO_SUFFIXES = {".mp4"}
 _MEDIA_FOLDER_NAMES = {MediaKind.PHOTO.value, MediaKind.VIDEO.value}
 
 
@@ -43,9 +43,13 @@ def scan_source(
 ) -> ScanResult:
     source_root = job.source_root.resolve()
     paths = sorted(path.resolve() for path in source_root.rglob("*") if path.is_file())
-    supported_paths = [path for path in paths if _media_kind(path) is not None]
-    ignored_files = tuple(path for path in paths if _media_kind(path) is None)
-    contributor_modes = _contributor_modes(source_root, supported_paths, mode_overrides)
+    contributors = [path for path in source_root.iterdir() if path.is_dir()]
+    supported_paths = [
+        path for path in paths
+        if len(path.relative_to(source_root).parts) > 1 and _media_kind(path) is not None
+    ]
+    ignored_files = tuple(path for path in paths if path not in supported_paths)
+    contributor_modes = _contributor_modes(contributors, mode_overrides)
     media = [_media_record(job, source_root, path, contributor_modes, ffprobe_runner) for path in supported_paths]
     counts = {name: 0 for name in contributor_modes}
     for record in media:
@@ -55,14 +59,13 @@ def scan_source(
 
 
 def _contributor_modes(
-    source_root: Path,
-    supported_paths: list[Path],
+    contributors: list[Path],
     overrides: Mapping[str, ContributorMode],
 ) -> dict[str, ContributorMode]:
-    contributors = {path.relative_to(source_root).parts[0] for path in supported_paths if path.relative_to(source_root).parts}
     modes: dict[str, ContributorMode] = {}
-    for contributor in contributors:
-        child_directories = [path.name for path in (source_root / contributor).iterdir() if path.is_dir() and path.name]
+    for contributor_path in contributors:
+        contributor = contributor_path.name
+        child_directories = [path.name for path in contributor_path.iterdir() if path.is_dir() and path.name]
         inferred = ContributorMode.UNCLASSIFIED if set(child_directories).issubset(_MEDIA_FOLDER_NAMES) else ContributorMode.CLASSIFIED
         modes[contributor] = overrides.get(contributor, inferred)
     return modes
