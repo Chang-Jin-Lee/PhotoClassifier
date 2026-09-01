@@ -1,1 +1,10 @@
 .worktrees/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.photoclassifier/
+편집자전달용_*/
