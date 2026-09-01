@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 import pytest
 from PIL import Image
@@ -13,6 +14,28 @@ def write_jpeg(path: Path, *, captured_at: str | None = None) -> None:
     if captured_at:
         exif[36867] = captured_at
     image.save(path, exif=exif)
+
+
+def write_oriented_jpeg(path: Path, *, orientation: int) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.new("RGB", (320, 180), "white")
+    exif = Image.Exif()
+    exif[274] = orientation
+    image.save(path, exif=exif)
+    return path
+
+
+def make_mp4(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "ffmpeg", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=10",
+            "-t", "3", "-pix_fmt", "yuv420p", "-y", str(path),
+        ],
+        check=True,
+        shell=False,
+    )
+    return path
 
 
 @pytest.fixture
